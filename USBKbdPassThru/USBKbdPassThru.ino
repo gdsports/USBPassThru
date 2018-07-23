@@ -50,6 +50,9 @@ class KbdRptParser : public KeyboardReportParser
 
 void KbdRptParser::Parse(USBHID *hid, bool is_rpt_id, uint8_t len, uint8_t *buf)
 {
+  // Run parent class method so keyboard LEDs are updated.
+  KeyboardReportParser::Parse(hid, is_rpt_id, len, buf);
+
   Serial.print("KbdRptParser::Parse");
   // Show USB HID keyboard report
   for (uint8_t i = 0; i < len ; i++) {
@@ -75,9 +78,10 @@ KbdRptParser Prs;
 void setup()
 {
   Serial.begin( 115200 );
-#if !defined(__MIPSEL__)
-  while (!Serial) delay(1); // Wait for serial port to connect - used on Leonardo, Teensy and other boards with built-in USB CDC serial connection
-#endif
+  uint8_t attempts = 30;
+  while (!Serial && attempts--) {
+    delay(100); // Wait for serial port to connect for up to 3 seconds
+  }
   Serial.println("Start");
 
   if (Usb.Init() == -1)

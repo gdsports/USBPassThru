@@ -50,6 +50,20 @@ protected:
 
 void MouseRptParser::Parse(USBHID *hid, bool is_rpt_id, uint8_t len, uint8_t *buf)
 {
+#if 0
+  // Demo -- Swap left and right buttons on 4 button Kensington trackball
+  if (len > 0) {
+    uint8_t button1 = buf[0] & 0x01;
+    uint8_t button2 = buf[0] & 0x02;
+    uint8_t button3 = buf[0] & 0x04;
+    uint8_t button4 = buf[0] & 0x08;
+    buf[0] = (buf[0] & 0xF0) | (button1 << 1) | (button2 >> 1) |
+                               (button3 << 1) | (button4 >> 1);
+  }
+#endif
+  // Run parent class method.
+  MouseReportParser::Parse(hid, is_rpt_id, len, buf);
+
   Serial.print("MouseRptParser::Parse");
   // Show USB HID mouse report
   for (uint8_t i = 0; i < len ; i++) {
@@ -57,16 +71,18 @@ void MouseRptParser::Parse(USBHID *hid, bool is_rpt_id, uint8_t len, uint8_t *bu
   }
   Serial.println();
 
-  // On error - return
-  if (buf[2] == 1)
-    return;
-
   if (len > 2) {
     uint8_t mouseRpt[4];
     mouseRpt[0] = buf[0];
     mouseRpt[1] = buf[1];
     mouseRpt[2] = buf[2];
-    mouseRpt[3] = 0;
+    // If the mouse/trackball has a scroll wheel, send the value
+    if (len > 3) {
+      mouseRpt[3] = buf[3];
+    }
+    else {
+      mouseRpt[3] = 0;
+    }
     HID().SendReport(1,mouseRpt,sizeof(mouseRpt));
   }
 }
@@ -79,9 +95,10 @@ MouseRptParser Prs;
 void setup()
 {
   Serial.begin( 115200 );
-#if !defined(__MIPSEL__)
-  while (!Serial) delay(1); // Wait for serial port to connect - used on Leonardo, Teensy and other boards with built-in USB CDC serial connection
-#endif
+  uint8_t attempts = 30;
+  while (!Serial && attempts--) {
+    delay(100); // Wait for serial port to connect for up to 3 seconds
+  }
   Serial.println("Start");
 
   if (Usb.Init() == -1) {
